@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RoofScan · Annotation Detector</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0c10;--surface:#11141a;--surface2:#181c24;--border:#222730;--accent:#e8ff47;--accent2:#47c8ff;--danger:#ff4747;--warn:#ff9900;--orphan:#ff6b00;--ok:#47ff9a;--text:#e8eaf0;--muted:#5a6070;--muted2:#3a3f4a}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(232,255,71,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(232,255,71,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+#login-page{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:100;background:var(--bg)}
+.login-box{position:relative;width:420px;background:var(--surface);border:1px solid var(--border);padding:48px 40px}
+.login-box::before{content:'';position:absolute;top:-1px;left:-1px;right:-1px;height:3px;background:var(--accent)}
+.login-logo{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.login-title{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1.1;margin-bottom:36px}
+.login-title span{color:var(--accent)}
+.field{margin-bottom:20px}
+.field label{display:block;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.field input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:14px;padding:12px 14px;outline:none;transition:border-color .2s}
+.field input:focus{border-color:var(--accent)}
+.login-err{font-size:12px;color:var(--danger);margin-bottom:16px;min-height:18px}
+.btn-login{width:100%;background:var(--accent);color:#0a0c10;border:none;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:14px;cursor:pointer}
+.btn-login:hover{opacity:.88}
+#dashboard{display:none;position:relative;z-index:1}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:56px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;width:100%}
+.topbar-logo{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--accent)}
+.topbar-right{display:flex;align-items:center;gap:16px}
+.topbar-user{font-size:11px;color:var(--muted)}
+.btn-logout{font-family:'DM Mono',monospace;font-size:11px;background:none;border:1px solid var(--border);color:var(--muted);padding:6px 14px;cursor:pointer}
+.btn-logout:hover{border-color:var(--danger);color:var(--danger)}
+.main{display:grid;grid-template-columns:280px 1fr;min-height:calc(100vh - 56px)}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:24px 20px;display:flex;flex-direction:column;gap:20px;position:sticky;top:56px;height:calc(100vh - 56px);overflow:hidden}
+.sec-title{font-size:9px;letter-spacing:.25em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.upload-zone{border:1px dashed var(--muted2);padding:18px 12px;text-align:center;cursor:pointer;transition:border-color .2s;position:relative}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(232,255,71,.03)}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-icon{font-size:22px;margin-bottom:6px}
+.upload-label{font-size:11px;color:var(--muted);line-height:1.5}
+.upload-label strong{color:var(--accent)}
+.file-name{font-size:11px;color:var(--ok);margin-top:8px;word-break:break-all;display:none}
+.control-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
+.control-row:last-child{border-bottom:none}
+.control-label{font-size:12px;color:var(--text);display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot.active{background:var(--accent)}.dot.info{background:var(--accent2)}.dot.warn{background:var(--warn)}
+.toggle{position:relative;width:36px;height:20px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--muted2);cursor:pointer;transition:background .2s;border-radius:20px}
+.toggle-slider::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:var(--text);border-radius:50%;transition:transform .2s}
+.toggle input:checked+.toggle-slider{background:var(--accent)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(16px);background:#0a0c10}
+.threshold-wrap{display:flex;align-items:center;gap:6px}
+.threshold-input{width:52px;background:var(--bg);border:1px solid var(--border);color:var(--accent);font-family:'DM Mono',monospace;font-size:13px;padding:4px 8px;text-align:right;outline:none}
+.threshold-unit{font-size:12px;color:var(--muted)}
+.btn{width:100%;padding:11px 16px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-primary{background:var(--accent);color:#0a0c10}
+.btn-primary:not(:disabled):hover{opacity:.85}
+.btn-reset{background:transparent;color:var(--muted);border:1px solid var(--border);margin-top:8px}
+.btn-reset:hover{border-color:var(--muted);color:var(--text)}
+.content{padding:28px;display:flex;flex-direction:column;gap:20px;min-width:0}
+.status-bar{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);font-size:12px;min-height:44px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--muted2);flex-shrink:0}
+.status-dot.running{background:var(--accent);animation:pulse 1s infinite}
+.status-dot.done{background:var(--ok)}.status-dot.error{background:var(--danger)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.status-text{color:var(--muted);flex:1}
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.summary-card{background:var(--surface);border:1px solid var(--border);padding:16px;position:relative}
+.summary-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.card-big::before{background:var(--danger)}.card-minor::before{background:var(--warn)}
+.card-line::before{background:var(--accent2)}.card-orphan::before{background:var(--orphan)}
+.card-count{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;line-height:1;margin-bottom:4px}
+.card-big .card-count{color:var(--danger)}.card-minor .card-count{color:var(--warn)}
+.card-line .card-count{color:var(--accent2)}.card-orphan .card-count{color:var(--orphan)}
+.card-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.viewer{background:var(--surface);border:1px solid var(--border);overflow:hidden;min-width:0}
+.viewer-header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);gap:16px}
+.viewer-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.viewer-nav{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.nav-btn{width:32px;height:32px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .2s,color .2s}
+.nav-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.nav-btn:disabled{opacity:.3;cursor:not-allowed}
+.nav-counter{font-size:12px;color:var(--muted);white-space:nowrap}
+.viewer-labels{display:flex;gap:14px;padding:8px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.viewer-label{font-size:10px;display:flex;align-items:center;gap:5px;color:var(--muted)}
+.viewer-label-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.viewer-canvas-wrap{display:flex;overflow:hidden;background:#1a1a2e;width:100%}
+.canvas-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.canvas-panel-title{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.canvas-panel canvas{width:100%;height:auto;display:block}
+.canvas-divider{width:1px;background:var(--border);flex-shrink:0}
+.table-wrap{background:var(--surface);border:1px solid var(--border);overflow-x:auto;min-width:0}
+.table-header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border)}
+.table-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700}
+.table-count{font-size:11px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead tr{background:var(--surface2)}
+th{padding:9px 14px;text-align:left;font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);font-weight:500;white-space:nowrap}
+td{padding:8px 14px;border-top:1px solid var(--border);white-space:nowrap}
+tr:hover td{background:rgba(255,255,255,.02)}
+.badge{display:inline-block;padding:2px 8px;font-size:10px;font-weight:600}
+.badge-big{background:rgba(255,71,71,.15);color:var(--danger)}
+.badge-minor{background:rgba(255,153,0,.15);color:var(--warn)}
+.badge-line{background:rgba(71,200,255,.15);color:var(--accent2)}
+.badge-orphan{background:rgba(255,107,0,.15);color:var(--orphan)}
+.empty-state{text-align:center;padding:60px 40px;color:var(--muted)}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
+.empty-text{font-size:13px;line-height:1.6}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--muted2);border-radius:3px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<div id="login-page" class="hidden">
+  <div class="login-box">
+    <div class="login-logo">RoofScan</div>
+    <div class="login-title">Annotation<br><span>Detector</span></div>
+    <div class="field"><label>Email</label><input type="email" id="inp-email" placeholder="admin@gmail.com"></div>
+    <div class="field"><label>Password</label><input type="password" id="inp-pass" placeholder="••••••••"></div>
+    <div class="login-err" id="login-err"></div>
+    <button class="btn-login" onclick="doLogin()">Sign In →</button>
+  </div>
+</div>
+
+<div id="dashboard" style="display:block">
+  <div class="topbar">
+    <div class="topbar-logo">RoofScan</div>
+    <div class="topbar-right">
+      <span class="topbar-user">admin@gmail.com</span>
+      <button class="btn-logout" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="sidebar">
+      <div>
+        <div class="sec-title">JSON File</div>
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" id="file-input" accept=".json" onchange="onFileSelect(this)">
+          <div class="upload-icon">📂</div>
+          <div class="upload-label">Drop <strong>COCO JSON</strong><br>or click to browse</div>
+          <div class="file-name" id="file-name"></div>
+        </div>
+      </div>
+      <div>
+        <div class="sec-title">Detection Options</div>
+        <div class="control-row">
+          <div class="control-label"><div class="dot active"></div>Overlap Detection</div>
+          <label class="toggle"><input type="checkbox" checked disabled><span class="toggle-slider"></span></label>
+        </div>
+        <div class="control-row">
+          <div class="control-label"><div class="dot info"></div>Show Labels</div>
+          <label class="toggle"><input type="checkbox" id="chk-labels"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="control-row">
+          <div class="control-label"><div class="dot warn"></div>Orphan Obstructions</div>
+          <label class="toggle"><input type="checkbox" id="chk-orphan" onchange="toggleOrphan()"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="control-row hidden" id="orphan-row" style="padding-left:16px">
+          <div class="control-label" style="font-size:11px;color:var(--muted)">Exposed threshold</div>
+          <div class="threshold-wrap">
+            <input type="number" class="threshold-input" id="inp-threshold" value="100" min="1" max="100">
+            <span class="threshold-unit">%</span>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:auto">
+        <button class="btn btn-primary" id="btn-run" onclick="runDetection()" disabled>▶ Run Detection</button>
+        <button class="btn btn-reset" onclick="doReset()">↺ Reset</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="status-bar">
+        <div class="status-dot" id="sd"></div>
+        <div class="status-text" id="st">Upload a COCO JSON file to begin.</div>
+      </div>
+      <div class="summary-grid" id="sgrid" style="display:none">
+        <div class="summary-card card-big"><div class="card-count" id="cnt-big">0</div><div class="card-label">🔴 Big Overlaps</div></div>
+        <div class="summary-card card-minor"><div class="card-count" id="cnt-minor">0</div><div class="card-label">🟡 Minor Overlaps</div></div>
+        <div class="summary-card card-line"><div class="card-count" id="cnt-line">0</div><div class="card-label">🔵 Line-over-line</div></div>
+        <div class="summary-card card-orphan"><div class="card-count" id="cnt-orphan">0</div><div class="card-label">🟠 Orphan Obstructions</div></div>
+      </div>
+      <div class="viewer hidden" id="viewer">
+        <div class="viewer-header">
+          <div class="viewer-title" id="vtitle">—</div>
+          <div class="viewer-nav">
+            <button class="nav-btn" id="btn-prev" onclick="navigate(-1)" disabled>&#8592;</button>
+            <span class="nav-counter" id="nav-ctr">0/0</span>
+            <button class="nav-btn" id="btn-next" onclick="navigate(1)" disabled>&#8594;</button>
+          </div>
+        </div>
+        <div class="viewer-labels" id="vlegend"></div>
+        <div class="viewer-canvas-wrap">
+          <div class="canvas-panel"><div class="canvas-panel-title">All Annotations</div><canvas id="cl"></canvas></div>
+          <div class="canvas-divider"></div>
+          <div class="canvas-panel"><div class="canvas-panel-title" id="rpt">Overlap Issues</div><canvas id="cr"></canvas></div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header"><div class="table-title">Issue Report</div><div class="table-count" id="tcnt">—</div></div>
+        <div id="tbody"><div class="empty-state"><div class="empty-icon">🏠</div><div class="empty-text">No results yet.<br>Upload a JSON and run detection.</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══ AUTH ═══
+function doLogin(){
+  const e=document.getElementById('inp-email').value.trim(),p=document.getElementById('inp-pass').value;
+  if(e==='admin@gmail.com'&&p==='qasim123'){
+    document.getElementById('login-page').classList.add('hidden');
+    document.getElementById('dashboard').style.display='block';
+  } else document.getElementById('login-err').textContent='Invalid email or password.';
+}
+function doLogout(){
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('login-page').classList.remove('hidden');
+  document.getElementById('inp-pass').value=''; doReset();
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!document.getElementById('login-page').classList.contains('hidden'))doLogin();
+  if(e.key==='ArrowLeft'&&detResults)navigate(-1);
+  if(e.key==='ArrowRight'&&detResults)navigate(1);
+});
+
+// ═══ STATE ═══
+let cocoData=null,cocoFileName='',detResults=null,dirtyIds=[],curIdx=0;
+
+function toggleOrphan(){document.getElementById('orphan-row').classList.toggle('hidden',!document.getElementById('chk-orphan').checked);}
+function setStatus(t,m){document.getElementById('sd').className='status-dot '+(t==='running'?'running':t==='done'?'done':t==='error'?'error':'');document.getElementById('st').textContent=m;}
+
+// ═══ FILE ═══
+function onFileSelect(inp){
+  const f=inp.files[0];if(!f)return;
+  cocoFileName=f.name.replace('.json','');
+  new FileReader().onload=e=>{
+    try{cocoData=JSON.parse(e.target.result);document.getElementById('file-name').textContent='✓ '+f.name;document.getElementById('file-name').style.display='block';document.getElementById('btn-run').disabled=false;setStatus('idle',`Loaded: ${f.name} — ${cocoData.images.length} images, ${cocoData.annotations.length} annotations`);}
+    catch{setStatus('error','Invalid JSON file.');}
+  };(new FileReader()).onload=e=>{try{cocoData=JSON.parse(e.target.result);document.getElementById('file-name').textContent='✓ '+f.name;document.getElementById('file-name').style.display='block';document.getElementById('btn-run').disabled=false;setStatus('idle',`Loaded: ${f.name} — ${cocoData.images.length} images, ${cocoData.annotations.length} annotations`);}catch{setStatus('error','Invalid JSON.');}};
+  const r=new FileReader();r.onload=e=>{try{cocoData=JSON.parse(e.target.result);document.getElementById('file-name').textContent='✓ '+f.name;document.getElementById('file-name').style.display='block';document.getElementById('btn-run').disabled=false;setStatus('idle',`Loaded: ${f.name}`);}catch{setStatus('error','Invalid JSON.');}};r.readAsText(f);
+}
+const uz=document.getElementById('upload-zone');
+uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('drag');});
+uz.addEventListener('dragleave',()=>uz.classList.remove('drag'));
+uz.addEventListener('drop',e=>{e.preventDefault();uz.classList.remove('drag');const f=e.dataTransfer.files[0];if(f&&f.name.endsWith('.json')){const dt=new DataTransfer();dt.items.add(f);document.getElementById('file-input').files=dt.files;onFileSelect(document.getElementById('file-input'));}});
+
+function doReset(){
+  cocoData=null;cocoFileName='';detResults=null;dirtyIds=[];curIdx=0;
+  document.getElementById('file-input').value='';document.getElementById('file-name').style.display='none';
+  document.getElementById('btn-run').disabled=true;document.getElementById('sgrid').style.display='none';
+  document.getElementById('viewer').classList.add('hidden');document.getElementById('tcnt').textContent='—';
+  document.getElementById('tbody').innerHTML='<div class="empty-state"><div class="empty-icon">🏠</div><div class="empty-text">No results yet.<br>Upload a JSON and run detection.</div></div>';
+  setStatus('idle','Upload a COCO JSON file to begin.');
+}
+
+// ═══ GEOMETRY (scaled for precision) ═══
+const COORD_SCALE = 100; // scale up coordinates to avoid float precision loss on tiny slivers
+
+function ensureCCW(pts){
+  let a=0;for(let i=0,n=pts.length;i<n;i++){const j=(i+1)%n;a+=pts[i][0]*pts[j][1]-pts[j][0]*pts[i][1];}
+  return a<0?pts.slice().reverse():pts;
+}
+function segToPoints(seg,scale=1){
+  if(!seg||!seg[0])return null;
+  const flat=seg[0],pts=[];
+  for(let i=0;i<flat.length-1;i+=2)pts.push([flat[i]*scale,flat[i+1]*scale]);
+  return pts.length>=3?ensureCCW(pts):null;
+}
+function polyArea(pts){let a=0;for(let i=0,n=pts.length;i<n;i++){const j=(i+1)%n;a+=pts[i][0]*pts[j][1]-pts[j][0]*pts[i][1];}return Math.abs(a)/2;}
+function polyBounds(pts){let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;for(const[x,y]of pts){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}return{x0,y0,x1,y1};}
+function boundsOverlap(a,b){return!(a.x1<b.x0||b.x1<a.x0||a.y1<b.y0||b.y1<a.y0);}
+function cross2(o,a,b){return(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);}
+function inside(p,a,b){return(b[0]-a[0])*(p[1]-a[1])-(b[1]-a[1])*(p[0]-a[0])>=0;}
+function seg_int(p1,p2,p3,p4){
+  const x1=p1[0],y1=p1[1],x2=p2[0],y2=p2[1],x3=p3[0],y3=p3[1],x4=p4[0],y4=p4[1];
+  const d=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
+  if(Math.abs(d)<1e-10)return p1;
+  const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/d;
+  return[x1+t*(x2-x1),y1+t*(y2-y1)];
+}
+function clipConvex(subj,clip){
+  let out=subj.slice();
+  for(let i=0;i<clip.length;i++){
+    if(!out.length)return[];
+    const inp=out.slice();out=[];
+    const eA=clip[i],eB=clip[(i+1)%clip.length];
+    for(let j=0;j<inp.length;j++){
+      const cur=inp[j],prev=inp[(j+inp.length-1)%inp.length];
+      const cI=inside(cur,eA,eB),pI=inside(prev,eA,eB);
+      if(cI){if(!pI)out.push(seg_int(prev,cur,eA,eB));out.push(cur);}
+      else if(pI)out.push(seg_int(prev,cur,eA,eB));
+    }
+  }
+  return out;
+}
+function ptInTri(p,a,b,c){
+  const d1=cross2(p,a,b),d2=cross2(p,b,c),d3=cross2(p,c,a);
+  return!((d1<0||d2<0||d3<0)&&(d1>0||d2>0||d3>0));
+}
+function triangulate(pts){
+  const v=pts.slice(),tris=[];let s=0;
+  while(v.length>3&&s++<pts.length*3){
+    let found=false;
+    for(let i=0;i<v.length;i++){
+      const a=v[(i-1+v.length)%v.length],b=v[i],c=v[(i+1)%v.length];
+      if(cross2(a,b,c)<=0)continue;
+      let ear=true;
+      for(let j=0;j<v.length;j++){
+        if(j===(i-1+v.length)%v.length||j===i||j===(i+1)%v.length)continue;
+        if(ptInTri(v[j],a,b,c)){ear=false;break;}
+      }
+      if(ear){tris.push([a,b,c]);v.splice(i,1);found=true;break;}
+    }
+    if(!found)break;
+  }
+  if(v.length===3)tris.push([v[0],v[1],v[2]]);
+  return tris;
+}
+function interArea(a,b){
+  let tot=0;
+  for(const ta of triangulate(a))for(const tb of triangulate(b)){const c=clipConvex(ta,tb);if(c.length>=3)tot+=polyArea(c);}
+  return tot;
+}
+// Returns all intersection pieces merged bounds (for thin measurement)
+function interPoly(a,b){
+  // Collect all clipped pieces and return merged point set for bounds calculation
+  const pieces=[];
+  for(const ta of triangulate(a))for(const tb of triangulate(b)){const c=clipConvex(ta,tb);if(c.length>=3)pieces.push(...c);}
+  return pieces; // all vertices of all pieces — bounds will cover full intersection
+}
+
+// ═══ SHARED EDGE DETECTION (for zero-area boundary touches) ═══
+// Two polygons share an edge if they have 2+ vertices within tolerance
+function polysShareEdge(ptsA, ptsB, tol=0.01) {
+  // Find all matching vertices between the two polygons
+  const matched = [];
+  for (const [ax, ay] of ptsA)
+    for (const [bx, by] of ptsB)
+      if (Math.abs(ax-bx) < tol && Math.abs(ay-by) < tol) { matched.push([ax,ay]); break; }
+  if (matched.length < 2) return false;
+  // Verify the matched vertices form a segment with non-zero length (not just same point twice)
+  for (let i = 0; i < matched.length; i++)
+    for (let j = i+1; j < matched.length; j++) {
+      const dx = matched[i][0]-matched[j][0], dy = matched[i][1]-matched[j][1];
+      if (Math.sqrt(dx*dx+dy*dy) > 0.1) return true; // distinct points → real edge
+    }
+  return false;
+}
+
+// ═══ DETECTION (mirrors exact notebook logic) ═══
+const BIG=0.10,MINOR=0.001,LINE_PX=2.0,CONT=0.85;
+const DORMER=new Set(['pitched dormer','flat dormer']);
+const ROOF=new Set(['roof pitch','flat roof','protruding air vent']);
+const BASE=new Set(['roof pitch','flat roof','pitched dormer','flat dormer','protruding air vent']);
+const OBS=new Set(['chimney','skylight','solar panel']);
+const TARGET=new Set(['roof pitch','flat roof','pitched dormer','flat dormer','protruding air vent']);
+
+function bboxContainment(dB,rB){
+  const ox=Math.max(0,Math.min(dB.x1,rB.x1)-Math.max(dB.x0,rB.x0));
+  const oy=Math.max(0,Math.min(dB.y1,rB.y1)-Math.max(dB.y0,rB.y0));
+  const dA=(dB.x1-dB.x0)*(dB.y1-dB.y0);
+  return dA>0?(ox*oy)/dA:0;
+}
+function isIntentional(ca,cb,areaA,areaB,ia,boundsA,boundsB){
+  const aD=DORMER.has(ca),bD=DORMER.has(cb),aR=ROOF.has(ca),bR=ROOF.has(cb);
+  if(!((aD&&bR)||(bD&&aR)))return false;
+  const dp=aD?areaA:areaB,rp=aD?areaB:areaA;
+  if(dp===0||rp===0)return false;
+  if(ia/dp>=CONT||ia/rp>=CONT)return true;
+  // Bbox fallback: only when ia is substantial (>10% of dormer) meaning triangulation underestimated
+  // Avoids false-positives where polys barely touch but bboxes overlap
+  const dBounds=aD?boundsA:boundsB,rBounds=aD?boundsB:boundsA;
+  return ia/dp>=0.05 && bboxContainment(dBounds,rBounds)>=CONT;
+}
+
+function runDetection(){
+  if(!cocoData)return;
+  document.getElementById('btn-run').disabled=true;
+  setStatus('running','Running detection…');
+  document.getElementById('sgrid').style.display='none';
+  document.getElementById('viewer').classList.add('hidden');
+
+  const showLabels=document.getElementById('chk-labels').checked;
+  const orphanOn=document.getElementById('chk-orphan').checked;
+  const orphanThr=parseFloat(document.getElementById('inp-threshold').value)/100;
+
+  setTimeout(()=>{
+    try{
+      const result=detect(cocoData,orphanOn,orphanThr,showLabels);
+      detResults=result; dirtyIds=Object.keys(result.byImage).map(Number); curIdx=0;
+      const s=result.summary;
+      document.getElementById('cnt-big').textContent=s.big;
+      document.getElementById('cnt-minor').textContent=s.minor;
+      document.getElementById('cnt-line').textContent=s.line;
+      document.getElementById('cnt-orphan').textContent=s.orphan;
+      document.getElementById('sgrid').style.display='grid';
+      const tot=s.big+s.minor+s.line+s.orphan;
+      setStatus('done',`Done — ${tot} issue(s) across ${dirtyIds.length} image(s).`);
+      renderTable(result);
+      if(dirtyIds.length){
+        document.getElementById('viewer').classList.remove('hidden');
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{renderViewer(0);updateNav();}));
+      }
+      document.getElementById('btn-run').disabled=false;
+    }catch(e){setStatus('error','Error: '+e.message);console.error(e);document.getElementById('btn-run').disabled=false;}
+  },30);
+}
+
+function detect(coco,orphanOn,orphanThr,showLabels){
+  const id2name={};for(const c of coco.categories)id2name[c.id]=c.name;
+  const targetIds=new Set(Object.entries(id2name).filter(([,n])=>TARGET.has(n)).map(([id])=>+id));
+  const obsIds=new Set(Object.entries(id2name).filter(([,n])=>OBS.has(n)).map(([id])=>+id));
+  const baseIds=new Set(Object.entries(id2name).filter(([,n])=>BASE.has(n)).map(([id])=>+id));
+
+  const imageMap={};for(const img of coco.images)imageMap[img.id]=img;
+  const sortedImgs=[...coco.images].sort((a,b)=>a.file_name.localeCompare(b.file_name));
+  const cvat={};sortedImgs.forEach((img,i)=>cvat[img.id]=i+1);
+
+  const annsByImg={};
+  for(const ann of coco.annotations){
+    if(!targetIds.has(ann.category_id))continue;
+    if(!annsByImg[ann.image_id])annsByImg[ann.image_id]=[];
+    annsByImg[ann.image_id].push(ann);
+  }
+
+  const S=COORD_SCALE,S2=S*S;
+  const summary={big:0,minor:0,line:0,orphan:0,clean:0,intentional:0};
+  const byImage={};
+
+  for(const[imgIdStr,anns]of Object.entries(annsByImg)){
+    const imgId=+imgIdStr;
+    const imgMeta=imageMap[imgId];
+    const cvatNo=cvat[imgId];
+    const fname=imgMeta.file_name.replace(/\.[^.]+$/,'');
+    const issues=[];
+
+    // Scale up for precision
+    const pts=anns.map(a=>segToPoints(a.segmentation,S));
+    const areas=pts.map(p=>p?polyArea(p)/S2:0);
+    const bounds=pts.map(p=>p?polyBounds(p):null);
+
+    for(let i=0;i<anns.length;i++){
+      if(!pts[i])continue;
+      const ca=id2name[anns[i].category_id];
+      for(let j=i+1;j<anns.length;j++){
+        if(!pts[j])continue;
+        const cb=id2name[anns[j].category_id];
+        if(!boundsOverlap(bounds[i],bounds[j]))continue;
+
+        const ia_s=interArea(pts[i],pts[j]);
+        const ia=ia_s/S2;
+        const mn=Math.min(areas[i],areas[j]);
+        if(mn===0)continue;
+
+        // ia===0 but polygons may share an exact edge (line-over-line)
+        if(ia===0){
+          // Use original (unscaled) points for vertex matching
+          const rawA=segToPoints(anns[i].segmentation,1);
+          const rawB=segToPoints(anns[j].segmentation,1);
+          if(rawA&&rawB&&polysShareEdge(rawA,rawB)){
+            summary.line++;
+            issues.push({type:'line',ratio:0,ia:0,thin:0,
+              annAId:anns[i].id,annBId:anns[j].id,catA:ca,catB:cb,
+              sameClass:anns[i].category_id===anns[j].category_id,
+              segA:anns[i].segmentation,segB:anns[j].segmentation,orphanIssue:null});
+          }
+          continue;
+        }
+
+        if(isIntentional(ca,cb,areas[i],areas[j],ia,bounds[i],bounds[j])){summary.intentional++;continue;}
+
+        const ratio=ia/mn;
+
+        // Thin: measure from actual intersection polygon bounds (scaled back)
+        const ip=interPoly(pts[i],pts[j]);
+        let thin=999;
+        if(ip.length>=3){
+          const ib=polyBounds(ip);
+          thin=Math.min(ib.x1-ib.x0,ib.y1-ib.y0)/S;
+        }
+
+        let type;
+        if(thin<LINE_PX&&ratio<MINOR*10)type='line';
+        else if(ratio>=BIG)type='big';
+        else if(ratio>=MINOR)type='minor';
+        else continue;
+
+        summary[type]++;
+        issues.push({type,ratio,ia,thin,
+          annAId:anns[i].id,annBId:anns[j].id,
+          catA:ca,catB:cb,
+          sameClass:anns[i].category_id===anns[j].category_id,
+          segA:anns[i].segmentation,segB:anns[j].segmentation,
+          orphanIssue:null});
+      }
+    }
+
+    // Orphan detection
+    if(orphanOn){
+      const basePts=coco.annotations
+        .filter(a=>a.image_id===imgId&&baseIds.has(a.category_id))
+        .map(a=>segToPoints(a.segmentation,S)).filter(Boolean);
+      const baseBounds=basePts.map(p=>polyBounds(p));
+
+      for(const obsAnn of coco.annotations.filter(a=>a.image_id===imgId&&obsIds.has(a.category_id))){
+        const obsPts=segToPoints(obsAnn.segmentation,S);
+        if(!obsPts)continue;
+        const obsArea=polyArea(obsPts)/S2;
+        if(obsArea===0)continue;
+        const obsBounds=polyBounds(obsPts);
+        const obsName=id2name[obsAnn.category_id];
+
+        // Union coverage via sum of intersections minus pairwise overlaps
+        const pieces=[];
+        for(let k=0;k<basePts.length;k++){
+          if(!boundsOverlap(obsBounds,baseBounds[k]))continue;
+          const ia_s=interArea(obsPts,basePts[k]);
+          if(ia_s>0){
+            const ip=interPoly(obsPts,basePts[k]);
+            if(ip.length>=3)pieces.push(ip);
+          }
+        }
+        let covered=0;
+        for(const p of pieces)covered+=polyArea(p)/S2;
+        for(let a=0;a<pieces.length;a++)
+          for(let b=a+1;b<pieces.length;b++){
+            const c=interPoly(pieces[a],pieces[b]);
+            if(c.length>=3)covered-=polyArea(c)/S2;
+          }
+        covered=Math.max(0,covered);
+        const exposed=1-(covered/obsArea);
+        if(exposed>orphanThr){
+          summary.orphan++;
+          issues.push({type:'orphan',ratio:exposed,ia:covered,thin:0,
+            annAId:obsAnn.id,annBId:null,catA:obsName,catB:'—',sameClass:false,
+            segA:obsAnn.segmentation,segB:null,
+            orphanIssue:`${(exposed*100).toFixed(1)}% exposed`});
+        }
+      }
+    }
+
+    if(issues.length){
+      byImage[imgId]={cvat:cvatNo,fname,w:imgMeta.width,h:imgMeta.height,
+        anns:anns.map(a=>({id:a.id,cat:id2name[a.category_id],seg:a.segmentation})),
+        issues};
+    } else summary.clean++;
+  }
+  return{summary,byImage,showLabels};
+}
+
+// ═══ TABLE ═══
+function renderTable(r){
+  const all=[];
+  for(const d of Object.values(r.byImage))for(const iss of d.issues)all.push({...iss,cvat:d.cvat,fname:d.fname});
+  const badges={big:'<span class="badge badge-big">🔴 BIG</span>',minor:'<span class="badge badge-minor">🟡 MINOR</span>',line:'<span class="badge badge-line">🔵 LINE</span>',orphan:'<span class="badge badge-orphan">🟠 ORPHAN</span>'};
+  document.getElementById('tcnt').textContent=`${all.length} issues`;
+  if(!all.length){document.getElementById('tbody').innerHTML='<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No issues found!</div></div>';return;}
+  let rows='';
+  for(const iss of all){
+    const pct=iss.type==='orphan'?iss.orphanIssue:(iss.ratio>0?(iss.ratio*100).toFixed(1)+'%':'<topo');
+    const rel=iss.type==='orphan'?'—':iss.sameClass?'same':'cross';
+    rows+=`<tr><td>#${iss.cvat}</td><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${iss.fname}</td><td>${badges[iss.type]}</td><td>${pct}</td><td>${rel}</td><td>${iss.catA}</td><td>${iss.catB}</td><td>${iss.annAId}</td><td>${iss.annBId||'—'}</td></tr>`;
+  }
+  document.getElementById('tbody').innerHTML=`<table><thead><tr><th>CVAT#</th><th>Filename</th><th>Type</th><th>Value</th><th>Relation</th><th>Cat A</th><th>Cat B</th><th>Ann A</th><th>Ann B</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ═══ VIEWER ═══
+const CAT_COLORS={'roof pitch':'#4A90D9','flat roof':'#7B68EE','pitched dormer':'#50C878','flat dormer':'#FFD700','chimney':'#FF6B6B','skylight':'#00CED1','solar panel':'#90EE90','protruding air vent':'#9B59B6'};
+const OV_COLORS={big:'#FF2222',minor:'#FF9900',line:'#00BFFF',orphan:'#FF6B00'};
+
+function navigate(dir){curIdx=Math.max(0,Math.min(dirtyIds.length-1,curIdx+dir));renderViewer(curIdx);updateNav();}
+function updateNav(){
+  document.getElementById('btn-prev').disabled=curIdx===0;
+  document.getElementById('btn-next').disabled=curIdx===dirtyIds.length-1;
+  document.getElementById('nav-ctr').textContent=`${curIdx+1} / ${dirtyIds.length}`;
+}
+function stp(seg){if(!seg||!seg[0])return null;const f=seg[0],p=[];for(let i=0;i<f.length-1;i+=2)p.push([f[i],f[i+1]]);return p.length>=3?p:null;}
+function cent(pts){let x=0,y=0;for(const[a,b]of pts){x+=a;y+=b;}return[x/pts.length,y/pts.length];}
+function fillP(ctx,pts,col,alpha,lw=1){
+  if(!pts||pts.length<3)return;
+  ctx.save();ctx.globalAlpha=alpha;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.closePath();ctx.fillStyle=col;ctx.fill();
+  ctx.globalAlpha=Math.min(alpha*2,1);ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.stroke();ctx.restore();
+}
+function drawLbl(ctx,pts,txt,bg){
+  const c=cent(pts),ls=txt.split('\n');
+  ctx.save();ctx.font='bold 9px monospace';
+  const w=Math.max(...ls.map(l=>ctx.measureText(l).width))+8,h=13*ls.length+6;
+  ctx.fillStyle=bg||'rgba(0,0,0,0.8)';ctx.fillRect(c[0]-w/2,c[1]-h/2,w,h);
+  ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';
+  ls.forEach((l,i)=>ctx.fillText(l,c[0],c[1]-6.5*(ls.length-1)+13*i));ctx.restore();
+}
+
+function renderViewer(idx){
+  const imgId=dirtyIds[idx];
+  const d=detResults.byImage[imgId];
+  const {cvat,fname,w:W,h:H,anns,issues}=d;
+  const showLabels=detResults.showLabels;
+
+  document.getElementById('vtitle').textContent=`CVAT #${cvat}  ·  ${fname}`;
+  const nb=issues.filter(i=>i.type==='big').length,nm=issues.filter(i=>i.type==='minor').length,nl=issues.filter(i=>i.type==='line').length,no=issues.filter(i=>i.type==='orphan').length;
+  document.getElementById('rpt').textContent=`Issues  |  🔴${nb} Big  🟡${nm} Minor  🔵${nl} Line  🟠${no} Orphan`;
+
+  const seenCats=new Set(anns.map(a=>a.cat));
+  let leg='';
+  for(const[n,c]of Object.entries(CAT_COLORS))if(seenCats.has(n))leg+=`<div class="viewer-label"><div class="viewer-label-dot" style="background:${c}"></div>${n}</div>`;
+  for(const[t,c]of Object.entries(OV_COLORS))leg+=`<div class="viewer-label"><div class="viewer-label-dot" style="background:${c}"></div>${{big:'Big',minor:'Minor',line:'Line',orphan:'Orphan'}[t]}</div>`;
+  document.getElementById('vlegend').innerHTML=leg;
+
+  const wrap=document.querySelector('.viewer-canvas-wrap');
+  const tw=wrap?(wrap.clientWidth||wrap.offsetWidth):1200;
+  const mw=Math.floor((tw-1)/2)||600;
+  const SC=Math.min(1,mw/W);
+  const CW=Math.round(W*SC),CH=Math.round(H*SC);
+
+  function setup(id){const c=document.getElementById(id);c.width=CW;c.height=CH;const ctx=c.getContext('2d');ctx.fillStyle='#16213e';ctx.fillRect(0,0,CW,CH);return ctx;}
+  function sp(pts){return pts?pts.map(([x,y])=>[x*SC,y*SC]):null;}
+
+  const cL=setup('cl'),cR=setup('cr');
+
+  for(const ann of anns){
+    const pts=sp(stp(ann.seg));if(!pts)continue;
+    const col=CAT_COLORS[ann.cat]||'#ccc';
+    fillP(cL,pts,col,0.30,1.2);
+    fillP(cR,pts,col,0.12,0.7);
+  }
+
+  for(const iss of issues){
+    if(iss.type==='orphan'){
+      const pts=sp(stp(iss.segA));if(!pts)continue;
+      fillP(cR,pts,OV_COLORS.orphan,0.80,2);
+      if(showLabels)drawLbl(cR,pts,`${iss.annAId}\n${iss.orphanIssue}`,OV_COLORS.orphan);
+    } else {
+      const pA=sp(stp(iss.segA)),pB=sp(stp(iss.segB));
+      const col=OV_COLORS[iss.type];
+      if(pA)fillP(cR,pA,col,0.45,1.5);
+      if(pB)fillP(cR,pB,col,0.45,1.5);
+      if(showLabels){
+        if(pA)drawLbl(cR,pA,String(iss.annAId));
+        if(pB)drawLbl(cR,pB,String(iss.annBId));
+      }
+    }
+  }
+}
+</script>
+</body>
+</html>
